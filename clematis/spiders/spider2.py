@@ -73,6 +73,7 @@ class Spider2(scrapy.Spider):
         self.hbase_client = None
         self.page_dump_params = None
         self.page_serials = {}
+        self.page_numbers = {}
         self.start_time = time.time()
 
     def spider_idle(self):
@@ -134,6 +135,27 @@ class Spider2(scrapy.Spider):
         for req in new_requests:
             yield req
 
+        # Turning page for static page is not tested.
+        if page_def['is_multi_page']:
+            if page_def['page_id'] not in self.page_numbers:
+                self.page_numbers[page_def['page_id']] = 1
+
+            if self.page_numbers[page_def['page_id']] >= page_def['max_page_number']:
+                return
+            else:
+                next_page = response.xpath(page_def['paginate_element'])
+
+                if len(next_page) == 0:
+                    self.logger.exception("Paginate element [%s] is not found.", page_def['paginate_element'])
+                    return
+                else:
+                    self.logger.debug("Turning to next page ...")
+                    self.page_numbers[page_def['page_id']] += 1
+
+                    link = next_page[0].xpath('./@href').extract()
+                    yield scrapy.Request(link, callback=self.parse_static_page, dont_filter=True,
+                                         meta={"my_page_id": page_def['page_id']})
+
     def parse_dynamic_page(self, response):
 
         crawl_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -163,12 +185,10 @@ class Spider2(scrapy.Spider):
 
         new_requests = self.get_page_link(response, page_def)
 
-        content = self.get_page_content(response, page_def,)
+        content = self.get_page_content(response, page_def)
 
         if page_def['save_page_source']:
             self.dump_page_source(page_def['page_id'], crawl_time, response.request.url, self.browser.page_source)
-
-        self.browser.close()
 
         if page_def['data_format'] == 'table':
             rows = self.content_to_rows(content)
@@ -183,18 +203,48 @@ class Spider2(scrapy.Spider):
         for req in new_requests:
             yield req
 
+        if page_def['is_multi_page']:
+            if page_def['page_id'] not in self.page_numbers:
+                self.page_numbers[page_def['page_id']] = 1
+
+            if self.page_numbers[page_def['page_id']] >= page_def['max_page_number']:
+                self.browser.close()
+                return
+            else:
+                try:
+                    next_page = self.browser.find_element_by_xpath(page_def['paginate_element'])
+                    next_page.click()
+                except NoSuchElementException as e:
+                    self.logger.exception("Paginate element [%s] is not found.", page_def['paginate_element'])
+                    self.browser.close()
+                else:
+                    self.logger.debug("Turning to next page ...")
+                    self.page_numbers[page_def['page_id']] += 1
+
+                    yield scrapy.Request(self.browser.current_url, callback=self.parse_dynamic_page, dont_filter=True,
+                                         meta={"my_page_type": "update",
+                                               "my_window": self.browser.current_window_handle,
+                                               "my_page_id": page_def['page_id']
+                                               }
+                                         )
+        else:
+            self.browser.close()
+
     def get_page_link(self, response, page_def):
 
         links = []
         request_list = []
         page_type = page_def['page_type']
 
+        # Extracting page links from static page is not tested.
         if page_type == 'static':
             for link in page_def['page_link_list']:
                 try:
                     for link_element in response.xpath(link['link_locate_pattern']):
-                        self.logger.debug('Find link: %s[%s]', link_element.get_attribute("href"), link_element.text)
-                        links.append((link_element.get_attribute("href"), link['next_page_id']))
+                        self.logger.debug('Find link: %s[%s]',
+                                          link_element.xpath('./@href').extract(),
+                                          link_element.xpath('.//text()').extract())
+                        links.append((link_element.xpath('./@href').extract(), link['next_page_id']))
                 except (NoSuchElementException, StaleElementReferenceException) as e:
                     self.logger.exception('No element is found from path %s', link['link_locate_pattern'])
         else:
@@ -205,13 +255,6 @@ class Spider2(scrapy.Spider):
                         links.append((link_element.get_attribute("href"), link['next_page_id']))
                 except (NoSuchElementException, StaleElementReferenceException) as e:
                     self.logger.exception('No element is found from path %s', link['link_locate_pattern'])
-
-        # if self.page_num < 1:
-        #     next_page = self.browser.find_element_by_xpath(
-        #         '//div[@class="pagebox"]/span[@class="pagebox_pre"][last()]/a')
-        #     next_page.click()
-        #     yield scrapy.Request(self.browser.current_url, callback=self.parse_page_1, dont_filter=True,
-        #                          meta={"my_page_type": "update", "my_window": self.browser.current_window_handle})
 
         if page_type == 'static':
             count = 32
@@ -295,7 +338,7 @@ class Spider2(scrapy.Spider):
             self.logger.debug("%s evaluated to %s", xpath, str(field_value_elements.extract()))
         else:
             if xpath.endswith('text()'):
-                xpath = xpath[0:xpath.rfind('text()')-1]
+                xpath = xpath[0:xpath.rfind('text()') - 1]
             field_value_elements = self.browser.find_elements_by_xpath(xpath)
             self.logger.debug("%s evaluated to %s", xpath, str(field_value_elements))
 
@@ -370,4 +413,3 @@ class Spider2(scrapy.Spider):
             map(lambda (k, v): Mutation(column=k, value=v), columns.items()), None)
 
         self.logger.debug("Row %s dumped to spider_page, url=%s", row, url)
-

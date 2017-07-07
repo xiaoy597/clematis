@@ -237,6 +237,8 @@ SPIDER2_SPIDER_PARAMS = {
             'save_page_source': False,
             'data_format': 'table',
             'is_multi_page': True,
+            'paginate_element': r'//div[@class="pagebox"]/span[@class="pagebox_pre"][last()]/a',
+            'max_page_number': 3,
             'load_indicator': r'//div[@class="pagebox"]',
             'page_link_list': [
                 {
