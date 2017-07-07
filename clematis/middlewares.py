@@ -16,7 +16,7 @@ from selenium.common.exceptions import NoSuchWindowException
 from scrapy.exceptions import IgnoreRequest
 
 
-class Test1SpiderMiddleware(object):
+class TestSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
     # scrapy acts as if the spider middleware does not modify the
     # passed objects.

@@ -14,10 +14,17 @@ from selenium.common.exceptions import StaleElementReferenceException
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 
+from thrift.transport import TSocket
+from thrift.transport import TTransport
+from thrift.protocol import TBinaryProtocol
 
-class WeatherSpider(scrapy.Spider):
-    name = 'weather'
-    allowed_domains = ['www.weather.com.cn']
+from hbase import Hbase
+from hbase.ttypes import ColumnDescriptor, Mutation
+
+
+class Spider2(scrapy.Spider):
+    name = 'spider2'
+    allowed_domains = []
     user_agent = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ' + \
                  'Chrome/58.0.3029.110 Safari/537.36'
 
@@ -55,7 +62,7 @@ class WeatherSpider(scrapy.Spider):
         return spider
 
     def __init__(self, **kwargs):
-        super(WeatherSpider, self).__init__(**kwargs)
+        super(Spider2, self).__init__(**kwargs)
         self.logger.debug("%s is initiated.", self.__class__.__name__)
 
         self.browser = None
@@ -63,6 +70,10 @@ class WeatherSpider(scrapy.Spider):
         self.page_num = 0
         self.request_queue = []
         self.params = None
+        self.hbase_client = None
+        self.page_dump_params = None
+        self.page_serials = {}
+        self.star_time = time.time()
 
     def spider_idle(self):
         self.logger.info("Spider idle signal caught.")
@@ -105,6 +116,11 @@ class WeatherSpider(scrapy.Spider):
 
         self.logger.debug("Page content: %s", str(content))
 
+        new_requests = self.get_page_link(response, page_def)
+
+        if page_def['save_page_source']:
+            self.dump_page_source(page_def['page_id'], crawl_time, response.request.url, response.text)
+
         if page_def['data_format'] == 'table':
             rows = self.content_to_rows(content)
 
@@ -114,6 +130,9 @@ class WeatherSpider(scrapy.Spider):
                 row['_collect_time'] = crawl_time
                 row['_data_store'] = page_def['data_store']
                 yield row
+
+        for req in new_requests:
+            yield req
 
     def parse_dynamic_page(self, response):
 
@@ -142,13 +161,12 @@ class WeatherSpider(scrapy.Spider):
                                  dont_filter=True)
             return
 
-        # page = self.browser.page_source
-        #
-        # self.logger.debug("Page source: %s", page)
-
         new_requests = self.get_page_link(response, page_def)
 
         content = self.get_page_content(response, page_def,)
+
+        if page_def['save_page_source']:
+            self.dump_page_source(page_def['page_id'], crawl_time, response.request.url, self.browser.page_source)
 
         self.browser.close()
 
@@ -319,4 +337,37 @@ class WeatherSpider(scrapy.Spider):
                 my_rows.extend(rows)
         return my_rows
 
+    def dump_page_source(self, page_id, crawl_time, url, page):
+
+        if self.hbase_client is None:
+            self.page_dump_params = self.crawler.settings.getdict('PAGE_DUMP_PARAMS')
+
+            transport = TTransport.TBufferedTransport(
+                TSocket.TSocket(self.page_dump_params['host'], self.page_dump_params['port']))
+            protocol = TBinaryProtocol.TBinaryProtocol(transport)
+            self.hbase_client = Hbase.Client(protocol)
+            transport.open()
+
+        if page_id not in self.page_serials:
+            self.page_serials[page_id] = 0
+        else:
+            self.page_serials[page_id] += 1
+
+        row = "%d_%d_%d_%d_%d" % \
+              (self.params['user_id'], self.params['job_id'], int(self.star_time), page_id, self.page_serials[page_id])
+
+        columns = {
+            'f1:url': url,
+            'f1:crawl_time': crawl_time,
+            'f2:page': page.encode('utf8'),
+        }
+
+        # self.logger.debug("row: %s", row)
+        # self.logger.debug("columns: %s", str(columns))
+
+        self.hbase_client.mutateRow(
+            self.page_dump_params['table'], row,
+            map(lambda (k, v): Mutation(column=k, value=v), columns.items()), None)
+
+        self.logger.debug("Row %s dumped to spider_page, url=%s", row, url)
 

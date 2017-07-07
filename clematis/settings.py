@@ -69,7 +69,7 @@ DOWNLOADER_MIDDLEWARES = {
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-    'clematis.pipelines.MySQLPipeline': 300,
+    'clematis.pipelines.ExporterPipeline': 300,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
@@ -94,6 +94,13 @@ ITEM_PIPELINES = {
 # HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
 
 LOG_ENABLED = False
+
+PAGE_DUMP_PARAMS = {
+    'host': '10.1.3.70',
+    'port': 9090,
+    'namespace': 'default',
+    'table': 'spider_page',
+}
 
 MYSQL_PIPELINE_PARAMS = {
     'host': 'localhost',
@@ -125,7 +132,9 @@ MYSQL_PIPELINE_PARAMS = {
     ]
 }
 
-WEATHER_SPIDER_PARAMS = {
+SPIDER2_SPIDER_PARAMS = {
+    'user_id': 1,
+    'job_id': 1,
     'start_page_list': [
         # 'http://www.weather.com.cn/textFC/beijing.shtml',
         # 'http://www.weather.com.cn/textFC/hunan.shtml',
@@ -138,6 +147,7 @@ WEATHER_SPIDER_PARAMS = {
             'page_id': 1,
             'page_name': u'省级天气预报',
             'page_type': 'static',
+            'save_page_source': True,
             'data_format': 'table',
             'data_store': 'mysql:spider_data.weather',
             'is_multi_page': False,
@@ -224,6 +234,7 @@ WEATHER_SPIDER_PARAMS = {
             'page_id': 10,
             'page_name': u'新浪新闻滚动列表',
             'page_type': 'dynamic',
+            'save_page_source': False,
             'data_format': 'table',
             'is_multi_page': True,
             'load_indicator': r'//div[@class="pagebox"]',
@@ -241,6 +252,7 @@ WEATHER_SPIDER_PARAMS = {
             'page_id': 11,
             'page_name': u'新浪新闻',
             'page_type': 'static',
+            'save_page_source': True,
             'data_format': 'table',
             'data_store': 'mysql:spider_data.sina_news',
             'is_multi_page': False,

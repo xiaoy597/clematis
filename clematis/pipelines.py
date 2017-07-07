@@ -8,26 +8,28 @@ import MySQLdb
 import logging
 
 
-class MySQLPipeline(object):
+class ExporterPipeline(object):
 
     @classmethod
     def from_crawler(cls, crawler):
-        mysql_pipeline = cls()
+        exporter_pipeline = cls()
+        exporter_pipeline.crawler = crawler
 
-        mysql_pipeline.params = crawler.settings.getdict('MYSQL_PIPELINE_PARAMS')
+        # exporter_pipeline.logger.debug(exporter_pipeline.params)
 
-        mysql_pipeline.logger.debug(mysql_pipeline.params)
-
-        return mysql_pipeline
+        return exporter_pipeline
 
     def __init__(self):
-        super(MySQLPipeline, self).__init__()
+        super(ExporterPipeline, self).__init__()
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info("Instance created.")
 
-        self.cxn = None
-        self.cursor = None
-        self.params = None
+        self.crawler = None
+
+        self.exporters = {
+            'mysql': {'exporter': self.export_to_mysql, 'vars': {}, 'params': {}},
+            'hbase': {'exporter': self.export_to_hbase, 'vars': {}, 'params': {}},
+        }
 
     def get_col_value(self, item, col_def):
         if col_def[1] == 'string':
@@ -37,17 +39,28 @@ class MySQLPipeline(object):
 
     def process_item(self, item, spider):
 
-        if '_data_store' not in dict(item).keys() or not item['_data_store'].startswith('mysql:'):
+        if '_data_store' not in dict(item).keys():
             return item
+
+        data_store = item['_data_store'].split(':')[0]
+
+        return self.exporters[data_store]['exporter'](item, spider)
+
+    def export_to_mysql(self, item, spider):
+
+        if len(self.exporters['mysql']['params']) == 0:
+            self.exporters['mysql']['params'] = self.crawler.settings.getdict('MYSQL_PIPELINE_PARAMS')
 
         for k, v in dict(item).iteritems():
             self.logger.debug("%s: %s", k, v)
 
-        if self.cxn is None:
-            self.cxn = MySQLdb.connect(host=self.params['host'], port=self.params['port'],
-                                       user=self.params['user'], passwd=self.params['passwd'])
-            self.cxn.autocommit(True)
-            self.cursor = self.cxn.cursor()
+        exporter_vars = self.exporters['mysql']['vars']
+        exporter_params = self.exporters['mysql']['params']
+        if 'cxn' not in exporter_vars:
+            exporter_vars['cxn'] = MySQLdb.connect(host=exporter_params['host'], port=exporter_params['port'],
+                                       user=exporter_params['user'], passwd=exporter_params['passwd'])
+            exporter_vars['cxn'].autocommit(True)
+            exporter_vars['cursor'] = exporter_vars['cxn'].cursor()
 
         sql_params = {
             'db': item['_data_store'].replace('mysql:', '').split('.')[0],
@@ -55,7 +68,7 @@ class MySQLPipeline(object):
         }
 
         sql_params['table'] = filter(lambda t: t['table_name'] == sql_params['table_name'],
-                                     self.params['table_list'])[0]
+                                     exporter_params['table_list'])[0]
         sql_params['column_name_list'] = ','.join([col[0] for col in sql_params['table']['column_list']])
 
         sql = 'insert into %(db)s.%(table_name)s(collect_time, %(column_name_list)s)' % sql_params + ' values (%s' + \
@@ -66,7 +79,9 @@ class MySQLPipeline(object):
 
         param = tuple(col_val_list)
 
-        self.cursor.execute(sql, param)
+        exporter_vars['cursor'].execute(sql, param)
 
         return item
 
+    def export_to_hbase(self, item, spider):
+        return item
