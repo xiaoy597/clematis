@@ -73,7 +73,7 @@ class Spider2(scrapy.Spider):
         self.hbase_client = None
         self.page_dump_params = None
         self.page_serials = {}
-        self.star_time = time.time()
+        self.start_time = time.time()
 
     def spider_idle(self):
         self.logger.info("Spider idle signal caught.")
@@ -354,7 +354,7 @@ class Spider2(scrapy.Spider):
             self.page_serials[page_id] += 1
 
         row = "%d_%d_%d_%d_%d" % \
-              (self.params['user_id'], self.params['job_id'], int(self.star_time), page_id, self.page_serials[page_id])
+              (self.params['user_id'], self.params['job_id'], int(self.start_time), page_id, self.page_serials[page_id])
 
         columns = {
             'f1:url': url,
