@@ -29,6 +29,9 @@ class Spider2(scrapy.Spider):
                  'Chrome/58.0.3029.110 Safari/537.36'
 
     def start_requests(self):
+
+        self.stats_exporter.update_stats(0)
+
         self.logger.info("Processing start request")
 
         urls = self.params['start_page_list']
@@ -57,6 +60,8 @@ class Spider2(scrapy.Spider):
 
         spider.logger.debug(spider.params)
 
+        spider.stats_exporter = StatsExporter(spider)
+
         spider.logger.debug("%s is configured.", cls.__name__)
 
         return spider
@@ -75,6 +80,7 @@ class Spider2(scrapy.Spider):
         self.page_serials = {}
         self.page_numbers = {}
         self.start_time = time.time()
+        self.stats_exporter = None
 
     def spider_idle(self):
         self.logger.info("Spider idle signal caught.")
@@ -87,6 +93,8 @@ class Spider2(scrapy.Spider):
 
         self.logger.info(stats_info)
 
+        self.stats_exporter.update_stats(1)
+
         if len(self.request_queue) > 0:
             count = 16 - len(self.browser.window_handles)
             while count > 0 and len(self.request_queue) > 0:
@@ -98,6 +106,9 @@ class Spider2(scrapy.Spider):
 
     def spider_close(self):
         self.logger.info("Spider close signal caught.")
+
+        self.stats_exporter.update_stats(2)
+
         if self.browser is not None:
             self.browser.quit()
 
@@ -382,7 +393,10 @@ class Spider2(scrapy.Spider):
 
     def dump_page_source(self, page_id, crawl_time, url, page):
 
-        if self.hbase_client is None:
+        if not self.params['page_dump']:
+            return
+
+        if self.page_dump_params is None:
             self.page_dump_params = self.crawler.settings.getdict('PAGE_DUMP_PARAMS')
 
             transport = TTransport.TBufferedTransport(
@@ -413,3 +427,56 @@ class Spider2(scrapy.Spider):
             map(lambda (k, v): Mutation(column=k, value=v), columns.items()), None)
 
         self.logger.debug("Row %s dumped to spider_page, url=%s", row, url)
+
+
+import MySQLdb
+
+
+class StatsExporter(object):
+    def __init__(self, spider):
+        super(StatsExporter, self).__init__()
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+        self.spider = spider
+
+        self.stats_params = spider.crawler.settings.getdict('STATS_EXPORT_PARAMS')
+
+        self.cxn = MySQLdb.connect(host=self.stats_params['host'], port=self.stats_params['port'],
+                                   user=self.stats_params['user'], passwd=self.stats_params['passwd'])
+        self.cxn.autocommit(True)
+        self.cursor = self.cxn.cursor()
+
+    def update_stats(self, run_status):
+        sql = '''insert into {db}.{table_name} (
+                      user_id, job_id, start_time, run_status, download_page_num, 
+                      pending_page_num, error_page_num)
+                  values (%s, %s, %s, %s, %s, %s, %s)
+                  on duplicate key update
+                    run_status = %s,
+                    download_page_num = %s,
+                    pending_page_num = %s,
+                    error_page_num = %s
+                  '''.format(db=self.stats_params['db'], table_name='crawl_status')
+
+        self.logger.debug("Update stats: %s", sql)
+
+        stats_info = self.spider.crawler.stats.__dict__['_stats']
+
+        self.logger.debug('Stats Info: %s', str(stats_info))
+
+        param = (
+            self.spider.params['user_id'],
+            self.spider.params['job_id'],
+            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.spider.start_time)),
+            run_status,
+            (lambda x: stats_info[x] if x in stats_info else 0)('downloader/response_count'),
+            len(self.spider.request_queue),
+            0,
+            run_status,
+            (lambda x: stats_info[x] if x in stats_info else 0)('downloader/response_count'),
+            len(self.spider.request_queue),
+            0,
+        )
+
+        self.cursor.execute(sql, param)
+
