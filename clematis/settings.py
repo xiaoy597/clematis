@@ -102,6 +102,14 @@ PAGE_DUMP_PARAMS = {
     'table': 'spider_page',
 }
 
+STATS_EXPORT_PARAMS = {
+    'host': 'localhost',
+    'port': 3306,
+    'user': 'root',
+    'passwd': 'root',
+    'db': 'spiderdb',
+}
+
 MYSQL_PIPELINE_PARAMS = {
     'host': 'localhost',
     'port': 3306,
@@ -129,19 +137,41 @@ MYSQL_PIPELINE_PARAMS = {
                 ('content', 'string'),
             ],
         },
+        {
+            'table_name': 'stock_price',
+            'column_list': [
+                ('stock_name', 'string'),
+                ('stock_id', 'string'),
+                ('stock_time', 'number'),
+                ('stock_price', 'number'),
+                ('stock_open_price', 'number'),
+                ('stock_deal_num', 'string'),
+                ('stock_deal_amt', 'string'),
+                ('stock_high_price', 'number'),
+                ('stock_exch_rate', 'string'),
+                ('stock_low_price', 'number'),
+                ('stock_total_value', 'string'),
+                ('stock_pb', 'number'),
+                ('stock_close_price', 'number'),
+                ('stock_currency_value', 'string'),
+                ('stock_pe', 'number'),
+            ]
+        },
     ]
 }
 
 SPIDER2_SPIDER_PARAMS = {
     'user_id': 1,
-    'job_id': 1,
+    'job_id': 2,
+    'page_dump': False,
     'start_page_list': [
         # 'http://www.weather.com.cn/textFC/beijing.shtml',
         # 'http://www.weather.com.cn/textFC/hunan.shtml',
         # 'http://www.weather.com.cn/textFC/guangdong.shtml',
-        'http://roll.news.sina.com.cn/s/channel.php#col=97&spec=&type=&ch=&k=&offset_page=0&offset_num=0&num=60&asc=&page=1',
+        # 'http://roll.news.sina.com.cn/s/channel.php#col=97&spec=&type=&ch=&k=&offset_page=0&offset_num=0&num=60&asc=&page=1',
+        'http://finance.sina.com.cn/realstock/company/sz000651/nc.shtml',
     ],
-    'start_page_id': 10,
+    'start_page_id': 20,
     'page_list': [
         {
             'page_id': 1,
@@ -238,7 +268,8 @@ SPIDER2_SPIDER_PARAMS = {
             'data_format': 'table',
             'is_multi_page': True,
             'paginate_element': r'//div[@class="pagebox"]/span[@class="pagebox_pre"][last()]/a',
-            'max_page_number': 3,
+            'page_interval': 2,
+            'max_page_number': 5,
             'load_indicator': r'//div[@class="pagebox"]',
             'page_link_list': [
                 {
@@ -278,6 +309,158 @@ SPIDER2_SPIDER_PARAMS = {
                     'parent_field_id': 0,
                     'field_level': 1,
                     'field_locate_pattern': r'//div[@id="artibody"]/p//text()',
+                    'field_extract_pattern': ''
+                },
+            ]
+        },
+        {
+            'page_id': 20,
+            'page_name': u'新浪股票行情',
+            'page_type': 'dynamic',
+            'save_page_source': False,
+            'data_format': 'table',
+            'data_store': 'mysql:spider_data.stock_price',
+            'is_multi_page': True,
+            'paginate_element': r'',
+            'page_interval': 2,
+            'max_page_number': 99,
+            'load_indicator': r'//h1[@id="stockName"]',
+            'page_link_list': [
+            ],
+            'page_field_list': [
+                {
+                    'field_id': 1,
+                    'field_name': 'stock_name',
+                    'field_data_type': 'string',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//h1[@id="stockName"]/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 2,
+                    'field_name': 'stock_id',
+                    'field_data_type': 'string',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//h1[@id="stockName"]/span/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 3,
+                    'field_name': 'stock_time',
+                    'field_data_type': 'string',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//*[@id="hqTime"]/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 4,
+                    'field_name': 'stock_price',
+                    'field_data_type': 'number',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//*[@id="price"]/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 5,
+                    'field_name': 'stock_open_price',
+                    'field_data_type': 'number',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[1]/td[1]/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 6,
+                    'field_name': 'stock_deal_num',
+                    'field_data_type': 'string',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[1]/td[2]/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 7,
+                    'field_name': 'stock_high_price',
+                    'field_data_type': 'number',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[2]/td[1]/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 8,
+                    'field_name': 'stock_deal_amt',
+                    'field_data_type': 'string',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[2]/td[2]/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 9,
+                    'field_name': 'stock_exch_rate',
+                    'field_data_type': 'string',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[2]/td[3]/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 10,
+                    'field_name': 'stock_low_price',
+                    'field_data_type': 'number',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[3]/td[1]/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 11,
+                    'field_name': 'stock_total_value',
+                    'field_data_type': 'string',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[3]/td[2]/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 12,
+                    'field_name': 'stock_pb',
+                    'field_data_type': 'number',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[3]/td[3]/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 13,
+                    'field_name': 'stock_close_price',
+                    'field_data_type': 'number',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[4]/td[1]/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 14,
+                    'field_name': 'stock_currency_value',
+                    'field_data_type': 'string',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[4]/td[2]/text()',
+                    'field_extract_pattern': ''
+                },
+                {
+                    'field_id': 15,
+                    'field_name': 'stock_pe',
+                    'field_data_type': 'number',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[4]/td[3]/text()',
                     'field_extract_pattern': ''
                 },
             ]
