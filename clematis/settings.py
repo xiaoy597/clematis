@@ -69,6 +69,7 @@ DOWNLOADER_MIDDLEWARES = {
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
+    # 'scrapy.pipelines.images.ImagesPipeline': 1,
     'clematis.pipelines.ExporterPipeline': 300,
 }
 
@@ -94,6 +95,7 @@ ITEM_PIPELINES = {
 # HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
 
 LOG_ENABLED = False
+# IMAGES_STORE = r'c:\tmp\images'
 
 PAGE_DUMP_PARAMS = {
     'host': '10.1.3.70',
@@ -168,10 +170,10 @@ SPIDER2_SPIDER_PARAMS = {
         # 'http://www.weather.com.cn/textFC/beijing.shtml',
         # 'http://www.weather.com.cn/textFC/hunan.shtml',
         # 'http://www.weather.com.cn/textFC/guangdong.shtml',
-        # 'http://roll.news.sina.com.cn/s/channel.php#col=97&spec=&type=&ch=&k=&offset_page=0&offset_num=0&num=60&asc=&page=1',
-        'http://finance.sina.com.cn/realstock/company/sz000651/nc.shtml',
+        'http://roll.news.sina.com.cn/s/channel.php#col=97&spec=&type=&ch=&k=&offset_page=0&offset_num=0&num=60&asc=&page=1',
+        # 'http://finance.sina.com.cn/realstock/company/sz000651/nc.shtml',
     ],
-    'start_page_id': 20,
+    'start_page_id': 10,
     'page_list': [
         {
             'page_id': 1,
@@ -191,8 +193,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[1]/td[@class="rowsPan"]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[1]/td[@class="rowsPan"]',
+                            'field_extract_pattern': 'self-text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 2,
@@ -200,8 +207,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 1,
                     'field_level': 2,
-                    'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][1]//text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][1]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 3,
@@ -209,8 +221,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 1,
                     'field_level': 2,
-                    'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][2]//text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][2]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 4,
@@ -218,8 +235,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 1,
                     'field_level': 2,
-                    'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][3]//text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][3]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 5,
@@ -227,8 +249,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'number',
                     'parent_field_id': 1,
                     'field_level': 2,
-                    'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][4]//text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][4]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 6,
@@ -236,8 +263,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 1,
                     'field_level': 2,
-                    'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][5]//text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][5]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 7,
@@ -245,8 +277,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 1,
                     'field_level': 2,
-                    'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][6]//text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][6]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 8,
@@ -254,8 +291,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'number',
                     'parent_field_id': 1,
                     'field_level': 2,
-                    'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][7]//text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@class="hanml"]/div[@class="conMidtab"][1]/div[@class="conMidtab3"][${FIELD_LEVEL_1_INDEX}]/table/tr[${FIELD_LEVEL_2_INDEX}]/td[not(@class="rowsPan")][7]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
             ]
 
@@ -299,8 +341,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//h1[@id="artibodyTitle"]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//h1[@id="artibodyTitle"]',
+                            'field_extract_pattern': 'self-text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 2,
@@ -308,8 +355,80 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//div[@id="artibody"]/p//text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@id="artibody"]//p',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
+                },
+            ]
+        },
+        {
+            'page_id': 30,
+            'page_name': u'新浪图片列表',
+            'page_type': 'dynamic',
+            'save_page_source': False,
+            'data_format': 'table',
+            'is_multi_page': True,
+            'paginate_element': r'//span[@class="pagination"]/a[@class="next"]',
+            'page_interval': 2,
+            'max_page_number': 5,
+            'load_indicator': r'//span[@class="pagination"]/a[@class="next"]',
+            'page_link_list': [
+                {
+                    'link_id': 1,
+                    'next_page_id': 31,
+                    'link_locate_pattern': r'//div[@node-type="items"]//div[@class="bd"]//a',
+                },
+            ],
+            'page_field_list': [
+            ]
+        },
+        {
+            'page_id': 31,
+            'page_name': u'新浪图片',
+            'page_type': 'dynamic',
+            'save_page_source': False,
+            'data_format': 'table',
+            'data_store': 'mysql:spider_data.sina_image',
+            'is_multi_page': False,
+            'load_indicator': r'//div[@slide-type="title"]/h2',
+            'page_link_list': [
+            ],
+            'page_field_list': [
+                {
+                    'field_id': 1,
+                    'field_name': 'title',
+                    'field_data_type': 'string',
+                    'parent_field_id': 0,
+                    'field_level': 1,
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@slide-type="title"]/h2',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
+                },
+                {
+                    'field_id': 2,
+                    'field_name': 'image_urls',
+                    'field_data_type': 'string',
+                    'parent_field_id': 1,
+                    'field_level': 2,
+                    'value_combine': False,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//li[@slide-type="item"]//img',
+                            'field_extract_pattern': '@src',
+                        },
+                        {
+                            'field_locate_pattern': r'//li[@slide-type="item"]/div[@slide-type="bigWrap"]',
+                            'field_extract_pattern': '@data-src',
+                        },
+                    ],
                 },
             ]
         },
@@ -334,8 +453,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//h1[@id="stockName"]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//h1[@id="stockName"]',
+                            'field_extract_pattern': 'self-text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 2,
@@ -343,8 +467,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//h1[@id="stockName"]/span/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//h1[@id="stockName"]/span',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 3,
@@ -352,8 +481,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//*[@id="hqTime"]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//*[@id="hqTime"]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 4,
@@ -361,8 +495,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'number',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//*[@id="price"]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//*[@id="price"]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 5,
@@ -370,8 +509,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'number',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[1]/td[1]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[1]/td[1]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 6,
@@ -379,8 +523,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[1]/td[2]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[1]/td[2]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 7,
@@ -388,8 +537,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'number',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[2]/td[1]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[2]/td[1]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 8,
@@ -397,8 +551,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[2]/td[2]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[2]/td[2]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 9,
@@ -406,8 +565,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[2]/td[3]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[2]/td[3]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 10,
@@ -415,8 +579,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'number',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[3]/td[1]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[3]/td[1]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 11,
@@ -424,8 +593,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[3]/td[2]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[3]/td[2]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 12,
@@ -433,8 +607,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'number',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[3]/td[3]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[3]/td[3]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 13,
@@ -442,8 +621,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'number',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[4]/td[1]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[4]/td[1]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 14,
@@ -451,8 +635,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'string',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[4]/td[2]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[4]/td[2]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
                 {
                     'field_id': 15,
@@ -460,8 +649,13 @@ SPIDER2_SPIDER_PARAMS = {
                     'field_data_type': 'number',
                     'parent_field_id': 0,
                     'field_level': 1,
-                    'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[4]/td[3]/text()',
-                    'field_extract_pattern': ''
+                    'value_combine': True,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@id="hqDetails"]/table/tbody/tr[4]/td[3]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
                 },
             ]
         },

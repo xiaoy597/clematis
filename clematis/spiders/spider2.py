@@ -122,11 +122,11 @@ class Spider2(scrapy.Spider):
 
         page_def = filter(lambda x: x['page_id'] == meta['my_page_id'], self.params['page_list'])[0]
 
-        self.logger.debug("Parsing page " + page_def['page_name'])
+        self.logger.debug("Parsing page %s from URL %s", page_def['page_name'], response.request.url)
 
-        content = self.get_page_content(response, page_def)
+        content = self.get_field_list(response, page_def)
 
-        self.logger.debug("Page content: %s", str(content))
+        # self.logger.debug("Page content: %s", str(content))
 
         new_requests = self.get_page_link(response, page_def)
 
@@ -169,6 +169,8 @@ class Spider2(scrapy.Spider):
 
     def parse_dynamic_page(self, response):
 
+        self.stats_exporter.update_stats(1)
+
         crawl_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
         meta = response.request.meta
@@ -177,7 +179,7 @@ class Spider2(scrapy.Spider):
 
         page_def = filter(lambda x: x['page_id'] == meta['my_page_id'], self.params['page_list'])[0]
 
-        self.logger.debug("Parsing page " + page_def['page_name'])
+        self.logger.debug("Parsing page %s from URL %s", page_def['page_name'], response.request.url)
 
         self.browser.switch_to.window(response.headers["handle"])
 
@@ -196,7 +198,7 @@ class Spider2(scrapy.Spider):
 
         new_requests = self.get_page_link(response, page_def)
 
-        content = self.get_page_content(response, page_def)
+        content = self.get_field_list(response, page_def)
 
         if page_def['save_page_source']:
             self.dump_page_source(page_def['page_id'], crawl_time, response.request.url, self.browser.page_source)
@@ -222,22 +224,39 @@ class Spider2(scrapy.Spider):
                 self.browser.close()
                 return
             else:
-                try:
-                    next_page = self.browser.find_element_by_xpath(page_def['paginate_element'])
-                    next_page.click()
-                except NoSuchElementException as e:
-                    self.logger.exception("Paginate element [%s] is not found.", page_def['paginate_element'])
-                    self.browser.close()
-                else:
-                    self.logger.debug("Turning to next page ...")
-                    self.page_numbers[page_def['page_id']] += 1
+                if page_def['paginate_element'] != '':
+                    try:
+                        time.sleep(max(page_def['page_interval'] - 2, 0))
+                        next_page = self.browser.find_element_by_xpath(page_def['paginate_element'])
+                        next_page.click()
+                    except NoSuchElementException as e:
+                        self.logger.exception("Paginate element [%s] is not found.", page_def['paginate_element'])
+                        self.browser.close()
+                    else:
+                        self.logger.debug("Turning to next page ...")
+                        self.page_numbers[page_def['page_id']] += 1
 
-                    yield scrapy.Request(self.browser.current_url, callback=self.parse_dynamic_page, dont_filter=True,
+                        yield scrapy.Request(self.browser.current_url,
+                                             callback=self.parse_dynamic_page,
+                                             dont_filter=True,
+                                             meta={"my_page_type": "update",
+                                                   "my_window": self.browser.current_window_handle,
+                                                   "my_page_id": page_def['page_id']
+                                                   }
+                                             )
+                else:
+                    # Self refresh page.
+                    time.sleep(max(page_def['page_interval'] - 2, 0))
+                    self.page_numbers[page_def['page_id']] += 1
+                    yield scrapy.Request(response.request.url,
+                                         callback=self.parse_dynamic_page,
+                                         dont_filter=True,
                                          meta={"my_page_type": "update",
                                                "my_window": self.browser.current_window_handle,
                                                "my_page_id": page_def['page_id']
                                                }
                                          )
+
         else:
             self.browser.close()
 
@@ -290,106 +309,131 @@ class Spider2(scrapy.Spider):
 
         return request_list
 
-    def get_page_content(self, response, page_def, current_field_list=None,
-                         xpath_var_dict={}, level=1):
-        content = []
+    def get_field_list(self, response, page_def, current_field_list=None, xpath_var_dict={}, level=1):
 
+        content = {}
         if current_field_list is None:
             current_field_list = filter(lambda x: x['parent_field_id'] == 0, page_def['page_field_list'])
 
         if len(current_field_list) == 0:
             return content
 
-        element_index_var = '${FIELD_LEVEL_' + str(level) + '_INDEX}'
-
-        if reduce(lambda x, y: x or y,
-                  [element_index_var in field['field_locate_pattern'] for field in current_field_list]):
-            list_index = 1
-            while True:
-                xpath_var_dict[element_index_var] = str(list_index)
-
-                field_list_value = {}
-                if not self.get_field_list_value(response, page_def, xpath_var_dict, field_list_value,
-                                                 current_field_list, level):
-                    break
-                else:
-                    content.append(field_list_value)
-
-                list_index += 1
-        else:
-            field_list_value = {}
-            self.get_field_list_value(response, page_def,
-                                      xpath_var_dict, field_list_value, current_field_list, level)
-            content.append(field_list_value)
+        for field in current_field_list:
+            content[field['field_name']] = self.get_field_values(response, page_def, field, xpath_var_dict, level)
 
         return content
 
-    def get_field_list_value(self, response, page_def,
-                             xpath_var_dict, field_list_value, current_field_list, level):
-        value_count = 0
-        for current_field in current_field_list:
-            # field_list_value[current_field['field_name']] = []
+    def get_element_content(self, page_type, element, extract_pattern):
 
-            xpath = current_field['field_locate_pattern']
-            for xpath_var in xpath_var_dict.keys():
-                xpath = xpath.replace(xpath_var, xpath_var_dict[xpath_var])
-
-            if not self.get_field_value(response, page_def, xpath_var_dict,
-                                        field_list_value, current_field, xpath, level):
-                self.logger.debug("No value is found for field %s.", current_field['field_name'])
+        if page_type == 'dynamic':
+            if extract_pattern == 'text':
+                return element.text
+            elif extract_pattern == 'self-text':
+                return element.text[0:element.text.index(
+                    ''.join(map(lambda e: e.text, element.find_elements_by_xpath('./*')))
+                )]
+            elif extract_pattern.starswith('@'):
+                return element.get_attribute(extract_pattern[1:])
             else:
-                value_count += 1
-
-        return value_count != 0
-
-    def get_field_value(self, response, page_def, xpath_var_dict,
-                        field_list_value, current_field, xpath, level):
-        if page_def['page_type'] == 'static':
-            field_value_elements = response.xpath(xpath)
-            self.logger.debug("%s evaluated to %s", xpath, str(field_value_elements.extract()))
+                raise Exception("Unsupported field extract pattern [%s]", extract_pattern)
         else:
-            if xpath.endswith('text()'):
-                xpath = xpath[0:xpath.rfind('text()') - 1]
-            field_value_elements = self.browser.find_elements_by_xpath(xpath)
-            self.logger.debug("%s evaluated to %s", xpath, str(field_value_elements))
-
-        if field_value_elements is not None and len(field_value_elements) > 0:
-            if page_def['page_type'] == 'static':
-                field_value = reduce(lambda x, y: x + ' ' + y,
-                                     field_value_elements.extract()).replace('\n', '').strip()
+            if extract_pattern == 'text':
+                return ''.join(element.xpath('.//text()').extract())
+            elif extract_pattern == 'self-text':
+                return ''.join(element.xpath('./text()').extract())
+            elif extract_pattern.starswith('@'):
+                return ''.join(element.xpath('./' + extract_pattern).extract())
             else:
-                field_value = reduce(lambda x, y: x + ' ' + y,
-                                     [elem.text for elem in field_value_elements]).replace('\n', '').strip()
+                raise Exception("Unsupported field extract pattern [%s]", extract_pattern)
 
-            field_list_value[current_field['field_name']] = \
-                (field_value, self.get_page_content(
+    def get_field_values(self, response, page_def, field, xpath_var_dict, level):
+        element_index_var = '${FIELD_LEVEL_' + str(level) + '_INDEX}'
+
+        field_value_list = []
+
+        list_index = 1
+        var_defined_in_xpath = True
+        while var_defined_in_xpath:
+            xpath_var_dict[element_index_var] = str(list_index)
+
+            temp_field_value_list = []
+            for field_path in field['field_path']:
+
+                xpath = field_path['field_locate_pattern']
+                for xpath_var in xpath_var_dict.keys():
+                    xpath = xpath.replace(xpath_var, xpath_var_dict[xpath_var])
+
+                if xpath == field_path['field_locate_pattern']:
+                    var_defined_in_xpath = False
+
+                if page_def['page_type'] == 'static':
+                    field_value_elements = response.xpath(xpath)
+                    self.logger.debug("%s evaluated to %s", xpath, str(field_value_elements.extract()))
+                else:
+                    field_value_elements = self.browser.find_elements_by_xpath(xpath)
+                    self.logger.debug("%s evaluated to %s", xpath, str(field_value_elements))
+
+                if field_value_elements is not None and len(field_value_elements) > 0:
+                    if field['value_combine']:
+
+                        field_value = reduce(lambda x, y: x + ' ' + y,
+                                             [self.get_element_content(page_def['page_type'], elem,
+                                                                       field_path['field_extract_pattern'])
+                                              for elem in field_value_elements]).replace('\n', '').strip()
+
+                        temp_field_value_list.append(field_value)
+                    else:
+                        for field_value_element in field_value_elements:
+                            field_value = self.get_element_content(
+                                page_def['page_type'], field_value_element,
+                                field_path['field_extract_pattern']).replace('\n', '').strip()
+
+                            temp_field_value_list.append(field_value)
+
+            if len(temp_field_value_list) == 0:
+                break
+
+            for field_value in temp_field_value_list:
+                field_value_list.append((field_value, self.get_field_list(
                     response,
                     page_def,
-                    filter(lambda x: x['parent_field_id'] == current_field['field_id'],
+                    filter(lambda x: x['parent_field_id'] == field['field_id'],
                            page_def['page_field_list']),
                     xpath_var_dict, level + 1)
-                 )
+                                         ))
+            list_index += 1
 
-            return True
-        else:
-            return False
+        return field_value_list
 
     def content_to_rows(self, content):
         my_rows = []
-        for field_list in content:
-            if len(field_list.keys()) > 1:
-                row = {}
-                for field_name in field_list.keys():
-                    row[field_name] = field_list[field_name][0]
-                my_rows.append(row)
+        columns = {}
+        for field in content.keys():
+            if len(content[field]) == 0:
+                columns[field] = ['']
             else:
-                rows = []
-                for field_name in field_list.keys():
-                    rows = self.content_to_rows(field_list[field_name][1])
-                    for row in rows:
-                        row[field_name] = field_list[field_name][0]
-                my_rows.extend(rows)
-        return my_rows
+                for field_value, sub_content in content[field]:
+                    sub_rows = self.content_to_rows(sub_content)
+                    if len(sub_rows) > 0:
+                        for sub_row in sub_rows:
+                            sub_row[field] = field_value
+                        my_rows.extend(sub_rows)
+                    else:
+                        if field not in columns:
+                            columns[field] = []
+                        columns[field].append(field_value)
+        if len(my_rows) > 0 or len(columns) == 0:
+            return my_rows
+        else:
+            index = 0
+            while True:
+                row = {}
+                for field in columns.keys():
+                    if len(columns[field]) < index+1:
+                        return my_rows
+                    row[field] = columns[field][index]
+                my_rows.append(row)
+                index += 1
 
     def dump_page_source(self, page_id, crawl_time, url, page):
 
@@ -458,7 +502,7 @@ class StatsExporter(object):
                     error_page_num = %s
                   '''.format(db=self.stats_params['db'], table_name='crawl_status')
 
-        self.logger.debug("Update stats: %s", sql)
+        # self.logger.debug("Update stats: %s", sql)
 
         stats_info = self.spider.crawler.stats.__dict__['_stats']
 
@@ -479,4 +523,3 @@ class StatsExporter(object):
         )
 
         self.cursor.execute(sql, param)
-
