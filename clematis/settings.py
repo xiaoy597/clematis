@@ -69,8 +69,10 @@ DOWNLOADER_MIDDLEWARES = {
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-    # 'scrapy.pipelines.images.ImagesPipeline': 1,
-    'clematis.pipelines.ExporterPipeline': 300,
+    'clematis.pipelines.ImagePreProcessPipeline': 1,
+    'scrapy.pipelines.images.ImagesPipeline': 2,
+    'clematis.pipelines.ImagePostProcessPipeline': 3,
+    'clematis.pipelines.ExporterPipeline': 4,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
@@ -95,7 +97,9 @@ ITEM_PIPELINES = {
 # HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
 
 LOG_ENABLED = False
-# IMAGES_STORE = r'c:\tmp\images'
+LOGGING_CONF = r'/root/scrapyd/logging.conf'
+# LOGGING_CONF = r'c:\tmp\clematis\clematis\logging.conf'
+IMAGES_STORE = r'/root/images'
 
 PAGE_DUMP_PARAMS = {
     'host': '10.1.3.70',
@@ -159,6 +163,15 @@ MYSQL_PIPELINE_PARAMS = {
                 ('stock_pe', 'number'),
             ]
         },
+        {
+            'table_name': 'sina_image',
+            'column_list': [
+                ('title', 'string'),
+                ('description', 'string'),
+                ('image_url', 'string'),
+                ('image_path', 'string'),
+            ]
+        },
     ]
 }
 
@@ -172,6 +185,7 @@ SPIDER2_SPIDER_PARAMS = {
         # 'http://www.weather.com.cn/textFC/guangdong.shtml',
         'http://roll.news.sina.com.cn/s/channel.php#col=97&spec=&type=&ch=&k=&offset_page=0&offset_num=0&num=60&asc=&page=1',
         # 'http://finance.sina.com.cn/realstock/company/sz000651/nc.shtml',
+        # 'http://slide.sports.sina.com.cn/',
     ],
     'start_page_id': 10,
     'page_list': [
@@ -311,7 +325,7 @@ SPIDER2_SPIDER_PARAMS = {
             'is_multi_page': True,
             'paginate_element': r'//div[@class="pagebox"]/span[@class="pagebox_pre"][last()]/a',
             'page_interval': 2,
-            'max_page_number': 5,
+            'max_page_number': 2,
             'load_indicator': r'//div[@class="pagebox"]',
             'page_link_list': [
                 {
@@ -414,7 +428,21 @@ SPIDER2_SPIDER_PARAMS = {
                 },
                 {
                     'field_id': 2,
-                    'field_name': 'image_urls',
+                    'field_name': 'description',
+                    'field_data_type': 'string',
+                    'parent_field_id': 1,
+                    'field_level': 2,
+                    'value_combine': False,
+                    'field_path':  [
+                        {
+                            'field_locate_pattern': r'//div[@id="eData"]/dl/dd[5]',
+                            'field_extract_pattern': 'text',
+                        },
+                    ],
+                },
+                {
+                    'field_id': 3,
+                    'field_name': 'image_url',
                     'field_data_type': 'string',
                     'parent_field_id': 1,
                     'field_level': 2,
@@ -425,7 +453,7 @@ SPIDER2_SPIDER_PARAMS = {
                             'field_extract_pattern': '@src',
                         },
                         {
-                            'field_locate_pattern': r'//li[@slide-type="item"]/div[@slide-type="bigWrap"]',
+                            'field_locate_pattern': r'//li[@slide-type="item"]/div[@slide-type="bigWrap" and @data-src!=""]',
                             'field_extract_pattern': '@data-src',
                         },
                     ],

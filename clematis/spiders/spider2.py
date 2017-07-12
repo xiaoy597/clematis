@@ -20,7 +20,7 @@ from thrift.protocol import TBinaryProtocol
 
 from hbase import Hbase
 from hbase.ttypes import ColumnDescriptor, Mutation
-
+import os
 
 class Spider2(scrapy.Spider):
     name = 'spider2'
@@ -54,7 +54,9 @@ class Spider2(scrapy.Spider):
         spider.crawler.signals.connect(spider.spider_idle, signal=signals.spider_idle)
         spider.crawler.signals.connect(spider.spider_close, signal=signals.spider_closed)
 
-        logging.config.fileConfig('logging.conf', disable_existing_loggers=False)
+        print "Current Directory is " + os.getcwd()
+
+        logging.config.fileConfig(crawler.settings.get('LOGGING_CONF'), disable_existing_loggers=False)
 
         spider.params = crawler.settings.getdict(spider.name.upper() + '_SPIDER_PARAMS')
 
@@ -68,7 +70,6 @@ class Spider2(scrapy.Spider):
 
     def __init__(self, **kwargs):
         super(Spider2, self).__init__(**kwargs)
-        self.logger.debug("%s is initiated.", self.__class__.__name__)
 
         self.browser = None
         self.default_window = None
@@ -96,7 +97,7 @@ class Spider2(scrapy.Spider):
         self.stats_exporter.update_stats(1)
 
         if len(self.request_queue) > 0:
-            count = 16 - len(self.browser.window_handles)
+            count = 4 - len(self.browser.window_handles)
             while count > 0 and len(self.request_queue) > 0:
                 req = self.request_queue.pop(0)
                 self.logger.debug("Dequeuing %s", req.url)
@@ -136,11 +137,12 @@ class Spider2(scrapy.Spider):
         if page_def['data_format'] == 'table':
             rows = self.content_to_rows(content)
 
-            self.logger.debug("Page content as rows: %s", str(rows))
+            # self.logger.debug("Page content as rows: %s", str(rows))
 
             for row in rows:
                 row['_collect_time'] = crawl_time
                 row['_data_store'] = page_def['data_store']
+                self.logger.debug("Sending row: %s", str(row))
                 yield row
 
         for req in new_requests:
@@ -200,22 +202,26 @@ class Spider2(scrapy.Spider):
 
         content = self.get_field_list(response, page_def)
 
+        # self.logger.debug("Page content is: %s", content)
+
         if page_def['save_page_source']:
             self.dump_page_source(page_def['page_id'], crawl_time, response.request.url, self.browser.page_source)
 
         if page_def['data_format'] == 'table':
             rows = self.content_to_rows(content)
 
-            self.logger.debug("Page content as rows: %s", str(rows))
+            # self.logger.debug("Page content as rows: %s", str(rows))
 
             for row in rows:
                 row['_collect_time'] = crawl_time
                 row['_data_store'] = page_def['data_store']
+                self.logger.debug("Sending row: %s", str(row))
                 yield row
 
         for req in new_requests:
             yield req
 
+        self.browser.switch_to.window(response.headers["handle"])
         if page_def['is_multi_page']:
             if page_def['page_id'] not in self.page_numbers:
                 self.page_numbers[page_def['page_id']] = 1
@@ -289,7 +295,7 @@ class Spider2(scrapy.Spider):
         if page_type == 'static':
             count = 32
         else:
-            count = 16 - len(self.browser.window_handles)
+            count = 4 - len(self.browser.window_handles)
 
         for link, next_page_id in links:
             next_page_def = filter(lambda x: x['page_id'] == next_page_id, self.params['page_list'])[0]
@@ -327,12 +333,15 @@ class Spider2(scrapy.Spider):
 
         if page_type == 'dynamic':
             if extract_pattern == 'text':
-                return element.text
+                text = element.text
+                if len(text) == 0:
+                    text = element.get_attribute('textContent')
+                return text
             elif extract_pattern == 'self-text':
                 return element.text[0:element.text.index(
                     ''.join(map(lambda e: e.text, element.find_elements_by_xpath('./*')))
                 )]
-            elif extract_pattern.starswith('@'):
+            elif extract_pattern.startswith('@'):
                 return element.get_attribute(extract_pattern[1:])
             else:
                 raise Exception("Unsupported field extract pattern [%s]", extract_pattern)

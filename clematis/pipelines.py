@@ -44,7 +44,9 @@ class ExporterPipeline(object):
 
         data_store = item['_data_store'].split(':')[0]
 
-        return self.exporters[data_store]['exporter'](item, spider)
+        new_item = self.exporters[data_store]['exporter'](item, spider)
+
+        return new_item
 
     def export_to_mysql(self, item, spider):
 
@@ -84,4 +86,81 @@ class ExporterPipeline(object):
         return item
 
     def export_to_hbase(self, item, spider):
+        return item
+
+
+import os
+import shutil
+
+
+class ImagePreProcessPipeline(object):
+    def __init__(self):
+        super(ImagePreProcessPipeline, self).__init__()
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.info("Instance created.")
+
+        self.image_root = None
+        self.crawler = None
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        pipeline = cls()
+        pipeline.crawler = crawler
+
+        return pipeline
+
+    def process_item(self, item, spider):
+        if 'image_url' in item:
+            item['image_urls'] = [item['image_url']]
+        return item
+
+
+class ImagePostProcessPipeline(object):
+    def __init__(self):
+        super(ImagePostProcessPipeline, self).__init__()
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.info("Instance created.")
+
+        self.image_root = None
+        self.crawler = None
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        pipeline = cls()
+        pipeline.crawler = crawler
+
+        # exporter_pipeline.logger.debug(exporter_pipeline.params)
+        pipeline.image_root = crawler.settings.get("IMAGES_STORE")
+
+        return pipeline
+
+    def process_item(self, item, spider):
+
+        if 'image_urls' not in item or 'title' not in item:
+            return item
+
+        slide_title = item['title'].replace('"', u'“')
+        slide_title = slide_title.replace(':', u'：')
+        slide_title = slide_title.replace('|', u'——')
+        slide_title = slide_title.replace('?', u'？')
+        slide_title = slide_title.replace('<', u'《')
+        slide_title = slide_title.replace('>', u'》')
+        slide_title = slide_title.replace('*', u'×')
+        slide_title = slide_title.replace('/', '_')
+        slide_title = slide_title.replace('\\', '_')
+
+        target_path = self.image_root + os.path.sep + slide_title
+        if not os.path.exists(target_path):
+            os.mkdir(target_path)
+
+        for image in item['images']:
+            print "Moving %s to %s" % \
+                  (self.image_root + os.path.sep + image['path'], target_path)
+            try:
+                shutil.move(self.image_root + os.path.sep + image['path'], target_path)
+            except Exception as e:
+                self.logger.exception("Failed to move image file to %s", target_path)
+
+        item['image_path'] = target_path + os.path.sep + item['images'][0]['path'][5:]
+
         return item
