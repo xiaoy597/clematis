@@ -97,8 +97,6 @@ ITEM_PIPELINES = {
 # HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
 
 LOG_ENABLED = False
-LOGGING_CONF = r'/root/scrapyd/logging.conf'
-# LOGGING_CONF = r'c:\tmp\clematis\clematis\logging.conf'
 IMAGES_STORE = r'/root/images'
 
 PAGE_DUMP_PARAMS = {
@@ -181,13 +179,13 @@ SPIDER2_SPIDER_PARAMS = {
     'page_dump': False,
     'start_page_list': [
         # 'http://www.weather.com.cn/textFC/beijing.shtml',
-        # 'http://www.weather.com.cn/textFC/hunan.shtml',
+        'http://www.weather.com.cn/textFC/hunan.shtml',
         # 'http://www.weather.com.cn/textFC/guangdong.shtml',
-        'http://roll.news.sina.com.cn/s/channel.php#col=97&spec=&type=&ch=&k=&offset_page=0&offset_num=0&num=60&asc=&page=1',
+        # 'http://roll.news.sina.com.cn/s/channel.php#col=97&spec=&type=&ch=&k=&offset_page=0&offset_num=0&num=60&asc=&page=1',
         # 'http://finance.sina.com.cn/realstock/company/sz000651/nc.shtml',
         # 'http://slide.sports.sina.com.cn/',
     ],
-    'start_page_id': 10,
+    'start_page_id': 1,
     'page_list': [
         {
             'page_id': 1,
@@ -388,7 +386,7 @@ SPIDER2_SPIDER_PARAMS = {
             'is_multi_page': True,
             'paginate_element': r'//span[@class="pagination"]/a[@class="next"]',
             'page_interval': 2,
-            'max_page_number': 5,
+            'max_page_number': 1,
             'load_indicator': r'//span[@class="pagination"]/a[@class="next"]',
             'page_link_list': [
                 {

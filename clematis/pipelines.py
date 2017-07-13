@@ -154,8 +154,7 @@ class ImagePostProcessPipeline(object):
             os.mkdir(target_path)
 
         for image in item['images']:
-            print "Moving %s to %s" % \
-                  (self.image_root + os.path.sep + image['path'], target_path)
+            self.logger.debug("Moving %s to %s", self.image_root + os.path.sep + image['path'], target_path)
             try:
                 shutil.move(self.image_root + os.path.sep + image['path'], target_path)
             except Exception as e:

@@ -56,7 +56,7 @@ class Spider2(scrapy.Spider):
 
         print "Current Directory is " + os.getcwd()
 
-        logging.config.fileConfig(crawler.settings.get('LOGGING_CONF'), disable_existing_loggers=False)
+        logging.config.fileConfig(os.environ['SPIDER_LOGGING_CONF'], disable_existing_loggers=False)
 
         spider.params = crawler.settings.getdict(spider.name.upper() + '_SPIDER_PARAMS')
 
