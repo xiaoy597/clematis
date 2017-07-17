@@ -16,6 +16,10 @@ insert into crawl_page_config values (1, 1, 1, '新浪新闻列表', 1, 0, 1, '/
 insert into crawl_page_config values (2, 1, 1, '新浪新闻页面', 0, 0, 0, '', '//h1[@id="artibodyTitle"]', 0, 0, 2);
 
 
+-- page_link 页面链接表
+delete from page_link;
+insert into page_link values (1, 1, 1, 1, '//div[@id="d_list"]/ul/li/span[@class="c_tit"]/a', '', 2);
+
 -- data_store 数据存储表
 delete from data_store;
 insert into data_store values (1, 1, 0);
