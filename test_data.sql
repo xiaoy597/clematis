@@ -6,14 +6,14 @@ insert into user values (1, 'Test user 1', 0, '2017-07-01', 0, '2017-07-02 09:00
 
 -- crawl job 抓取任务配置表
 delete from crawl_job;
-insert into crawl_job values (1, 1, '新浪新闻', 1, 1, '2017-07-17 20:00:00', 0, 0, 0, 1, 0, 0, 0, 'http://roll.news.sina.com.cn/s/channel.php#col=97&spec=&type=&ch=&k=&offset_page=0&offset_num=0&num=60&asc=&page=1');
-insert into crawl_job values (2, 1, '天气预报', 1, 1, '2017-07-17 21:00:00', 1440, 0, 0, 1, 0, 0, 0, 'http://www.weather.com.cn/textFC/hunan.shtml');
+insert into crawl_job values (1, 1, '新浪新闻', 1, 1, 0, 0, 1, 0, 0, 0, 'http://roll.news.sina.com.cn/s/channel.php#col=97&spec=&type=&ch=&k=&offset_page=0&offset_num=0&num=60&asc=&page=1', 1, 0);
+insert into crawl_job values (2, 1, '天气预报', 1, 1, 0, 0, 1, 0, 0, 0, 'http://www.weather.com.cn/textFC/hunan.shtml', 1, 0);
 
 -- crawl_page_config 采集页面定义表
 delete from crawl_page_config;
-insert into crawl_page_config values (1, 2, 1, '省级天气预报', 0, 0, 0, '', '//div[@class="hanml"]', 0, 0, 1);
-insert into crawl_page_config values (1, 1, 1, '新浪新闻列表', 1, 0, 1, '//div[@class="pagebox"]/span[@class="pagebox_pre"][last()]/a', '//div[@class="pagebox"]', 0, 2, 0);
-insert into crawl_page_config values (2, 1, 1, '新浪新闻页面', 0, 0, 0, '', '//h1[@id="artibodyTitle"]', 0, 0, 2);
+insert into crawl_page_config values (1, 2, 1, '省级天气预报', 0, 0, 0, '', '//div[@class="hanml"]', 0, 0, 0, 'spider_data.weather');
+insert into crawl_page_config values (1, 1, 1, '新浪新闻列表', 1, 0, 1, '//div[@class="pagebox"]/span[@class="pagebox_pre"][last()]/a', '//div[@class="pagebox"]', 0, 2, 0, '');
+insert into crawl_page_config values (2, 1, 1, '新浪新闻页面', 0, 0, 0, '', '//h1[@id="artibodyTitle"]', 0, 0, 0, 'spider_data.sina_news');
 
 
 -- page_link 页面链接表
@@ -31,16 +31,6 @@ insert into data_store_param values (1, 1, 'host', 'localhost');
 insert into data_store_param values (1, 1, 'port', '3306');
 insert into data_store_param values (1, 1, 'user', 'root');
 insert into data_store_param values (1, 1, 'passwd', 'root');
-insert into data_store_param values (1, 1, 'db', 'spider_data');
-insert into data_store_param values (1, 1, 'table', 'weather');
-
-insert into data_store_param values (2, 1, 'host', 'localhost');
-insert into data_store_param values (2, 1, 'port', '3306');
-insert into data_store_param values (2, 1, 'user', 'root');
-insert into data_store_param values (2, 1, 'passwd', 'root');
-insert into data_store_param values (2, 1, 'db', 'spider_data');
-insert into data_store_param values (2, 1, 'table', 'sina_news');
-
 
 -- page_field 页面字段配置表
 delete from page_field;
@@ -83,3 +73,12 @@ insert into page_field_locate_relation values (8, 1, 2, 1, 8);
 
 insert into page_field_locate_relation values (1, 2, 1, 1, 101);
 insert into page_field_locate_relation values (2, 2, 1, 1, 102);
+
+-- job_schedule 任务调度表
+delete from job_schedule;
+insert into job_schedule values (0, 0);
+
+-- job_schedule_param 任务调度参数表
+delete from job_schedule_param;
+insert into job_schedule_param values (0, 'time', '');
+

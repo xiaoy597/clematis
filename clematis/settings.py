@@ -99,6 +99,9 @@ ITEM_PIPELINES = {
 LOG_ENABLED = False
 IMAGES_STORE = r'/root/images'
 
+USER_ID = 1
+JOB_ID = 1
+
 PAGE_DUMP_PARAMS = {
     'host': '10.1.3.70',
     'port': 9090,

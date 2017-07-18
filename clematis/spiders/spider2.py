@@ -22,6 +22,12 @@ from hbase import Hbase
 from hbase.ttypes import ColumnDescriptor, Mutation
 import os
 
+from StringIO import StringIO
+import pycurl
+import json
+from urllib import urlencode
+
+
 class Spider2(scrapy.Spider):
     name = 'spider2'
     allowed_domains = []
@@ -34,17 +40,19 @@ class Spider2(scrapy.Spider):
 
         self.logger.info("Processing start request")
 
-        urls = self.params['start_page_list']
+        urls = self.params[u'start_urls'].split(',')
 
-        for url in urls:
-            if filter(lambda page: page['page_id'] == self.params['start_page_id'],
-                      [page for page in self.params['page_list']])[0]['page_type'] == 'static':
-                yield scrapy.Request(url=url, callback=self.parse_static_page,
-                                     meta={'my_page_id': self.params['start_page_id']})
-            else:
-                yield scrapy.Request(url=url, callback=self.parse_dynamic_page,
-                                     meta={"my_page_type": "dynamic", 'my_page_id': self.params['start_page_id']},
-                                     dont_filter=True)
+        self.logger.debug(urls)
+
+        # for url in urls:
+        #     if filter(lambda page: page['page_id'] == self.params['start_page_id'],
+        #               [page for page in self.params['page_list']])[0]['page_type'] == 'static':
+        #         yield scrapy.Request(url=url, callback=self.parse_static_page,
+        #                              meta={'my_page_id': self.params['start_page_id']})
+        #     else:
+        #         yield scrapy.Request(url=url, callback=self.parse_dynamic_page,
+        #                              meta={"my_page_type": "dynamic", 'my_page_id': self.params['start_page_id']},
+        #                              dont_filter=True)
 
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
@@ -58,7 +66,9 @@ class Spider2(scrapy.Spider):
 
         logging.config.fileConfig(os.environ['SPIDER_LOGGING_CONF'], disable_existing_loggers=False)
 
-        spider.params = crawler.settings.getdict(spider.name.upper() + '_SPIDER_PARAMS')
+        # spider.params = crawler.settings.getdict(spider.name.upper() + '_SPIDER_PARAMS')
+
+        spider.params = spider.get_job_param(crawler.settings.get('USER_ID'), crawler.settings.get('JOB_ID'))
 
         spider.logger.debug(spider.params)
 
@@ -112,6 +122,22 @@ class Spider2(scrapy.Spider):
 
         if self.browser is not None:
             self.browser.quit()
+
+    def get_job_param(self, user_id, job_id):
+
+        buf = StringIO()
+        fields = urlencode({'user_id': user_id, 'job_id': job_id})
+
+        curl = pycurl.Curl()
+        curl.setopt(curl.URL, 'http://%s:%s/spider-config' % (os.getenv('SHEPHERD_HOST'), os.getenv('SHEPHERD_PORT')))
+        curl.setopt(curl.WRITEDATA, buf)
+        curl.setopt(curl.POSTFIELDS, fields)
+        curl.perform()
+
+        json_data = buf.getvalue()
+        self.logger.debug("Job Configuration:\n" + json_data)
+
+        return json.loads(json_data)
 
     def parse_static_page(self, response):
 
@@ -438,7 +464,7 @@ class Spider2(scrapy.Spider):
             while True:
                 row = {}
                 for field in columns.keys():
-                    if len(columns[field]) < index+1:
+                    if len(columns[field]) < index + 1:
                         return my_rows
                     row[field] = columns[field][index]
                 my_rows.append(row)
@@ -482,9 +508,10 @@ class Spider2(scrapy.Spider):
         self.logger.debug("Row %s dumped to spider_page, url=%s", row, url)
 
 
-import MySQLdb
 
+# The stats exporter should be changed to use REST API to update stats info to shepherd server.
 
+from io import BytesIO
 class StatsExporter(object):
     def __init__(self, spider):
         super(StatsExporter, self).__init__()
@@ -492,24 +519,25 @@ class StatsExporter(object):
 
         self.spider = spider
 
-        self.stats_params = spider.crawler.settings.getdict('STATS_EXPORT_PARAMS')
-
-        self.cxn = MySQLdb.connect(host=self.stats_params['host'], port=self.stats_params['port'],
-                                   user=self.stats_params['user'], passwd=self.stats_params['passwd'])
-        self.cxn.autocommit(True)
-        self.cursor = self.cxn.cursor()
+        # self.stats_params = spider.crawler.settings.getdict('STATS_EXPORT_PARAMS')
+        #
+        # self.cxn = MySQLdb.connect(host=self.stats_params['host'], port=self.stats_params['port'],
+        #                            user=self.stats_params['user'], passwd=self.stats_params['passwd'])
+        # self.cxn.autocommit(True)
+        # self.cursor = self.cxn.cursor()
 
     def update_stats(self, run_status):
-        sql = '''insert into {db}.{table_name} (
-                      user_id, job_id, start_time, run_status, download_page_num, 
-                      pending_page_num, error_page_num)
-                  values (%s, %s, %s, %s, %s, %s, %s)
-                  on duplicate key update
-                    run_status = %s,
-                    download_page_num = %s,
-                    pending_page_num = %s,
-                    error_page_num = %s
-                  '''.format(db=self.stats_params['db'], table_name='crawl_status')
+
+        # sql = '''insert into {db}.{table_name} (
+        #               user_id, job_id, start_time, run_status, download_page_num,
+        #               pending_page_num, error_page_num)
+        #           values (%s, %s, %s, %s, %s, %s, %s)
+        #           on duplicate key update
+        #             run_status = %s,
+        #             download_page_num = %s,
+        #             pending_page_num = %s,
+        #             error_page_num = %s
+        #           '''.format(db=self.stats_params['db'], table_name='crawl_status')
 
         # self.logger.debug("Update stats: %s", sql)
 
@@ -517,18 +545,23 @@ class StatsExporter(object):
 
         self.logger.debug('Stats Info: %s', str(stats_info))
 
-        param = (
-            self.spider.params['user_id'],
-            self.spider.params['job_id'],
-            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.spider.start_time)),
-            run_status,
-            (lambda x: stats_info[x] if x in stats_info else 0)('downloader/response_count'),
-            len(self.spider.request_queue),
-            0,
-            run_status,
-            (lambda x: stats_info[x] if x in stats_info else 0)('downloader/response_count'),
-            len(self.spider.request_queue),
-            0,
-        )
+        fields = {
+            'user_id': self.spider.params['user_id'],
+            'job_id': self.spider.params['job_id'],
+            'start_time': time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.spider.start_time)),
+            'run_status': run_status,
+            'download_num': (lambda x: stats_info[x] if x in stats_info else 0)('downloader/response_count'),
+            'pending_num': len(self.spider.request_queue),
+            'error_num': 0
+        }
 
-        self.cursor.execute(sql, param)
+        buffer1 = BytesIO()
+        my_curl = pycurl.Curl()
+        my_curl.setopt(my_curl.URL,
+                       'http://%s:%s/update-status' % (os.getenv('SHEPHERD_HOST'), os.getenv('SHEPHERD_PORT')))
+        my_curl.setopt(my_curl.WRITEDATA, buffer1)
+        my_curl.setopt(my_curl.POSTFIELDS, urlencode(fields))
+
+        my_curl.perform()
+
+        self.logger.debug('Response for update stats is %d' % my_curl.getinfo(my_curl.RESPONSE_CODE))
