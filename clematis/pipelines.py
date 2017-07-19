@@ -6,9 +6,11 @@
 # See: http://doc.scrapy.org/en/latest/topics/item-pipeline.html
 import MySQLdb
 import logging
+from clematis.const import SPIDER_FIELD_TYPE_STRING
 
 
 class ExporterPipeline(object):
+    data_store_type = ['mysql', 'hbase']
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -27,22 +29,22 @@ class ExporterPipeline(object):
         self.crawler = None
 
         self.exporters = {
-            'mysql': {'exporter': self.export_to_mysql, 'vars': {}, 'params': {}},
-            'hbase': {'exporter': self.export_to_hbase, 'vars': {}, 'params': {}},
+            'mysql': {'exporter': self.export_to_mysql, 'vars': {}},
+            'hbase': {'exporter': self.export_to_hbase, 'vars': {}},
         }
 
-    def get_col_value(self, item, col_def):
-        if col_def[1] == 'string':
-            return item[col_def[0]].encode('utf8')
+    def get_field_value(self, item, field):
+        if field['field_datatype'] == SPIDER_FIELD_TYPE_STRING:
+            return item[field['field_name']].encode('utf8')
         else:
-            return item[col_def[0]]
+            return item[field['field_name']]
 
     def process_item(self, item, spider):
 
-        if '_data_store' not in dict(item).keys():
+        if '_page_id' not in dict(item).keys():
             return item
 
-        data_store = item['_data_store'].split(':')[0]
+        data_store = self.data_store_type[spider.params['data_store']['data_store_type']]
 
         new_item = self.exporters[data_store]['exporter'](item, spider)
 
@@ -50,34 +52,31 @@ class ExporterPipeline(object):
 
     def export_to_mysql(self, item, spider):
 
-        if len(self.exporters['mysql']['params']) == 0:
-            self.exporters['mysql']['params'] = self.crawler.settings.getdict('MYSQL_PIPELINE_PARAMS')
-
         for k, v in dict(item).iteritems():
             self.logger.debug("%s: %s", k, v)
 
         exporter_vars = self.exporters['mysql']['vars']
-        exporter_params = self.exporters['mysql']['params']
+        exporter_params = spider.params['data_store']
         if 'cxn' not in exporter_vars:
-            exporter_vars['cxn'] = MySQLdb.connect(host=exporter_params['host'], port=exporter_params['port'],
-                                       user=exporter_params['user'], passwd=exporter_params['passwd'])
+            exporter_vars['cxn'] = MySQLdb.connect(host=exporter_params['host'], port=int(exporter_params['port']),
+                                                   user=exporter_params['user'], passwd=exporter_params['passwd'],
+                                                   charset='utf8')
             exporter_vars['cxn'].autocommit(True)
             exporter_vars['cursor'] = exporter_vars['cxn'].cursor()
 
+        page_def = filter(lambda x: x['page_id'] == item['_page_id'], spider.params['pages'])[0]
+
         sql_params = {
-            'db': item['_data_store'].replace('mysql:', '').split('.')[0],
-            'table_name': item['_data_store'].replace('mysql:', '').split('.')[1],
+            'db': page_def['data_file'].split('.')[0],
+            'table_name': page_def['data_file'].split('.')[1],
+            'column_name_list': ','.join([c['field_name'] for c in page_def['fields']]),
         }
 
-        sql_params['table'] = filter(lambda t: t['table_name'] == sql_params['table_name'],
-                                     exporter_params['table_list'])[0]
-        sql_params['column_name_list'] = ','.join([col[0] for col in sql_params['table']['column_list']])
-
-        sql = 'insert into %(db)s.%(table_name)s(collect_time, %(column_name_list)s)' % sql_params + ' values (%s' + \
-              ', %s' * len(sql_params['table']['column_list']) + ')'
+        sql = 'insert into %(db)s.%(table_name)s (collect_time, %(column_name_list)s)' % sql_params + ' values (%s' + \
+              ', %s' * len(page_def['fields']) + ')'
 
         col_val_list = [item['_collect_time'].encode('utf8')]
-        col_val_list.extend([self.get_col_value(item, col) for col in sql_params['table']['column_list']])
+        col_val_list.extend([self.get_field_value(item, field) for field in page_def['fields']])
 
         param = tuple(col_val_list)
 

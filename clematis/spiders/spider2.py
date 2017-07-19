@@ -27,6 +27,7 @@ import pycurl
 import json
 from urllib import urlencode
 
+from clematis.const import *
 
 class Spider2(scrapy.Spider):
     name = 'spider2'
@@ -36,23 +37,23 @@ class Spider2(scrapy.Spider):
 
     def start_requests(self):
 
+        self.logger.info("Starting to crawl %s" % self.params['job_name'])
+
         self.stats_exporter.update_stats(0)
 
-        self.logger.info("Processing start request")
-
-        urls = self.params[u'start_urls'].split(',')
+        urls = self.params['start_urls'].split(',')
 
         self.logger.debug(urls)
 
-        # for url in urls:
-        #     if filter(lambda page: page['page_id'] == self.params['start_page_id'],
-        #               [page for page in self.params['page_list']])[0]['page_type'] == 'static':
-        #         yield scrapy.Request(url=url, callback=self.parse_static_page,
-        #                              meta={'my_page_id': self.params['start_page_id']})
-        #     else:
-        #         yield scrapy.Request(url=url, callback=self.parse_dynamic_page,
-        #                              meta={"my_page_type": "dynamic", 'my_page_id': self.params['start_page_id']},
-        #                              dont_filter=True)
+        for url in urls:
+            if filter(lambda page: page['page_id'] == self.params['entry_page_id'],
+                      [page for page in self.params['pages']])[0]['page_type'] == SPIDER_STATIC_PAGE:
+                yield scrapy.Request(url=url, callback=self.parse_static_page,
+                                     meta={'my_page_id': self.params['entry_page_id']})
+            else:
+                yield scrapy.Request(url=url, callback=self.parse_dynamic_page,
+                                     meta={"my_page_type": "dynamic", 'my_page_id': self.params['entry_page_id']},
+                                     dont_filter=True)
 
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
@@ -147,7 +148,7 @@ class Spider2(scrapy.Spider):
         if meta is None or 'my_page_id' not in meta:
             raise Exception('Meta is missing for request ' + response.request.url)
 
-        page_def = filter(lambda x: x['page_id'] == meta['my_page_id'], self.params['page_list'])[0]
+        page_def = filter(lambda x: x['page_id'] == meta['my_page_id'], self.params['pages'])[0]
 
         self.logger.debug("Parsing page %s from URL %s", page_def['page_name'], response.request.url)
 
@@ -160,14 +161,14 @@ class Spider2(scrapy.Spider):
         if page_def['save_page_source']:
             self.dump_page_source(page_def['page_id'], crawl_time, response.request.url, response.text)
 
-        if page_def['data_format'] == 'table':
+        if page_def['data_format'] == SPIDER_DATA_FORMAT_TABLE:
             rows = self.content_to_rows(content)
 
             # self.logger.debug("Page content as rows: %s", str(rows))
 
             for row in rows:
                 row['_collect_time'] = crawl_time
-                row['_data_store'] = page_def['data_store']
+                row['_page_id'] = page_def['page_id']
                 self.logger.debug("Sending row: %s", str(row))
                 yield row
 
@@ -179,7 +180,7 @@ class Spider2(scrapy.Spider):
             if page_def['page_id'] not in self.page_numbers:
                 self.page_numbers[page_def['page_id']] = 1
 
-            if self.page_numbers[page_def['page_id']] >= page_def['max_page_number']:
+            if self.page_numbers[page_def['page_id']] >= page_def['max_page_num']:
                 return
             else:
                 next_page = response.xpath(page_def['paginate_element'])
@@ -205,7 +206,7 @@ class Spider2(scrapy.Spider):
         if meta is None or 'my_page_id' not in meta:
             raise Exception('Meta is missing for request ' + response.request.url)
 
-        page_def = filter(lambda x: x['page_id'] == meta['my_page_id'], self.params['page_list'])[0]
+        page_def = filter(lambda x: x['page_id'] == meta['my_page_id'], self.params['pages'])[0]
 
         self.logger.debug("Parsing page %s from URL %s", page_def['page_name'], response.request.url)
 
@@ -233,14 +234,14 @@ class Spider2(scrapy.Spider):
         if page_def['save_page_source']:
             self.dump_page_source(page_def['page_id'], crawl_time, response.request.url, self.browser.page_source)
 
-        if page_def['data_format'] == 'table':
+        if page_def['data_format'] == SPIDER_DATA_FORMAT_TABLE:
             rows = self.content_to_rows(content)
 
             # self.logger.debug("Page content as rows: %s", str(rows))
 
             for row in rows:
                 row['_collect_time'] = crawl_time
-                row['_data_store'] = page_def['data_store']
+                row['_page_id'] = page_def['page_id']
                 self.logger.debug("Sending row: %s", str(row))
                 yield row
 
@@ -252,7 +253,7 @@ class Spider2(scrapy.Spider):
             if page_def['page_id'] not in self.page_numbers:
                 self.page_numbers[page_def['page_id']] = 1
 
-            if self.page_numbers[page_def['page_id']] >= page_def['max_page_number']:
+            if self.page_numbers[page_def['page_id']] >= page_def['max_page_num']:
                 self.browser.close()
                 return
             else:
@@ -299,8 +300,8 @@ class Spider2(scrapy.Spider):
         page_type = page_def['page_type']
 
         # Extracting page links from static page is not tested.
-        if page_type == 'static':
-            for link in page_def['page_link_list']:
+        if page_type == SPIDER_STATIC_PAGE:
+            for link in page_def['links']:
                 try:
                     for link_element in response.xpath(link['link_locate_pattern']):
                         self.logger.debug('Find link: %s[%s]',
@@ -310,7 +311,7 @@ class Spider2(scrapy.Spider):
                 except (NoSuchElementException, StaleElementReferenceException) as e:
                     self.logger.exception('No element is found from path %s', link['link_locate_pattern'])
         else:
-            for link in page_def['page_link_list']:
+            for link in page_def['links']:
                 try:
                     for link_element in self.browser.find_elements_by_xpath(link['link_locate_pattern']):
                         self.logger.debug('Find link: %s[%s]', link_element.get_attribute("href"), link_element.text)
@@ -318,14 +319,14 @@ class Spider2(scrapy.Spider):
                 except (NoSuchElementException, StaleElementReferenceException) as e:
                     self.logger.exception('No element is found from path %s', link['link_locate_pattern'])
 
-        if page_type == 'static':
+        if page_type == SPIDER_STATIC_PAGE:
             count = 32
         else:
             count = 4 - len(self.browser.window_handles)
 
         for link, next_page_id in links:
-            next_page_def = filter(lambda x: x['page_id'] == next_page_id, self.params['page_list'])[0]
-            if next_page_def['page_type'] == 'static':
+            next_page_def = filter(lambda x: x['page_id'] == next_page_id, self.params['pages'])[0]
+            if next_page_def['page_type'] == SPIDER_STATIC_PAGE:
                 req = scrapy.Request(link, callback=self.parse_static_page,
                                      meta={"my_page_id": next_page_id}, dont_filter=True)
             else:
@@ -345,7 +346,7 @@ class Spider2(scrapy.Spider):
 
         content = {}
         if current_field_list is None:
-            current_field_list = filter(lambda x: x['parent_field_id'] == 0, page_def['page_field_list'])
+            current_field_list = filter(lambda x: x['parent_field_id'] == 0, page_def['fields'])
 
         if len(current_field_list) == 0:
             return content
@@ -357,7 +358,7 @@ class Spider2(scrapy.Spider):
 
     def get_element_content(self, page_type, element, extract_pattern):
 
-        if page_type == 'dynamic':
+        if page_type == SPIDER_DYNAMIC_PAGE:
             if extract_pattern == 'text':
                 text = element.text
                 if len(text) == 0:
@@ -392,7 +393,7 @@ class Spider2(scrapy.Spider):
             xpath_var_dict[element_index_var] = str(list_index)
 
             temp_field_value_list = []
-            for field_path in field['field_path']:
+            for field_path in field['field_locates']:
 
                 xpath = field_path['field_locate_pattern']
                 for xpath_var in xpath_var_dict.keys():
@@ -401,7 +402,7 @@ class Spider2(scrapy.Spider):
                 if xpath == field_path['field_locate_pattern']:
                     var_defined_in_xpath = False
 
-                if page_def['page_type'] == 'static':
+                if page_def['page_type'] == SPIDER_STATIC_PAGE:
                     field_value_elements = response.xpath(xpath)
                     self.logger.debug("%s evaluated to %s", xpath, str(field_value_elements.extract()))
                 else:
@@ -409,11 +410,11 @@ class Spider2(scrapy.Spider):
                     self.logger.debug("%s evaluated to %s", xpath, str(field_value_elements))
 
                 if field_value_elements is not None and len(field_value_elements) > 0:
-                    if field['value_combine']:
+                    if field['combine_field_value']:
 
                         field_value = reduce(lambda x, y: x + ' ' + y,
                                              [self.get_element_content(page_def['page_type'], elem,
-                                                                       field_path['field_extract_pattern'])
+                                                                       field_path['field_ext_pattern'])
                                               for elem in field_value_elements]).replace('\n', '').strip()
 
                         temp_field_value_list.append(field_value)
@@ -421,7 +422,7 @@ class Spider2(scrapy.Spider):
                         for field_value_element in field_value_elements:
                             field_value = self.get_element_content(
                                 page_def['page_type'], field_value_element,
-                                field_path['field_extract_pattern']).replace('\n', '').strip()
+                                field_path['field_ext_pattern']).replace('\n', '').strip()
 
                             temp_field_value_list.append(field_value)
 
@@ -433,7 +434,7 @@ class Spider2(scrapy.Spider):
                     response,
                     page_def,
                     filter(lambda x: x['parent_field_id'] == field['field_id'],
-                           page_def['page_field_list']),
+                           page_def['fields']),
                     xpath_var_dict, level + 1)
                                          ))
             list_index += 1
@@ -463,23 +464,27 @@ class Spider2(scrapy.Spider):
             index = 0
             while True:
                 row = {}
+                field_num = 0
                 for field in columns.keys():
                     if len(columns[field]) < index + 1:
-                        return my_rows
-                    row[field] = columns[field][index]
+                        row[field] = columns[field][len(columns[field]) - 1]
+                    else:
+                        row[field] = columns[field][index]
+                        field_num += 1
+                if field_num == 0:
+                    return my_rows
                 my_rows.append(row)
                 index += 1
 
     def dump_page_source(self, page_id, crawl_time, url, page):
 
-        if not self.params['page_dump']:
+        if os.getenv('SPIDER_PAGE_DUMP').upper() == 'FALSE':
             return
 
-        if self.page_dump_params is None:
-            self.page_dump_params = self.crawler.settings.getdict('PAGE_DUMP_PARAMS')
+        if self.hbase_client is None:
 
             transport = TTransport.TBufferedTransport(
-                TSocket.TSocket(self.page_dump_params['host'], self.page_dump_params['port']))
+                TSocket.TSocket(os.getenv('SPIDER_PAGE_DUMP_HOST'), os.getenv('SPIDER_PAGE_DUMP_PORT')))
             protocol = TBinaryProtocol.TBinaryProtocol(transport)
             self.hbase_client = Hbase.Client(protocol)
             transport.open()
@@ -502,7 +507,7 @@ class Spider2(scrapy.Spider):
         # self.logger.debug("columns: %s", str(columns))
 
         self.hbase_client.mutateRow(
-            self.page_dump_params['table'], row,
+            os.getenv('SPIDER_PAGE_DUMP_TABLE'), row,
             map(lambda (k, v): Mutation(column=k, value=v), columns.items()), None)
 
         self.logger.debug("Row %s dumped to spider_page, url=%s", row, url)
