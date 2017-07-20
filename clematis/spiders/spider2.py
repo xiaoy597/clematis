@@ -225,14 +225,21 @@ class Spider2(scrapy.Spider):
                                  dont_filter=True)
             return
 
-        new_requests = self.get_page_link(response, page_def)
+        try:
+            new_requests = self.get_page_link(response, page_def)
 
-        content = self.get_field_list(response, page_def)
+            content = self.get_field_list(response, page_def)
 
-        # self.logger.debug("Page content is: %s", content)
+            # self.logger.debug("Page content is: %s", content)
 
-        if page_def['save_page_source']:
-            self.dump_page_source(page_def['page_id'], crawl_time, response.request.url, self.browser.page_source)
+            if page_def['save_page_source']:
+                self.dump_page_source(page_def['page_id'], crawl_time, response.request.url, self.browser.page_source)
+        except StaleElementReferenceException:
+            self.logger.debug("Page %s is updated during parsing, try it again ...")
+            yield scrapy.Request(url=response.request.url, callback=self.parse_dynamic_page,
+                                 meta={"my_page_type": "dynamic", 'my_page_id': meta['my_page_id']},
+                                 dont_filter=True)
+            return
 
         if page_def['data_format'] == SPIDER_DATA_FORMAT_TABLE:
             rows = self.content_to_rows(content)
