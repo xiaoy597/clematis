@@ -521,9 +521,8 @@ class Spider2(scrapy.Spider):
 
 
 
-# The stats exporter should be changed to use REST API to update stats info to shepherd server.
-
 from io import BytesIO
+
 class StatsExporter(object):
     def __init__(self, spider):
         super(StatsExporter, self).__init__()
@@ -531,27 +530,7 @@ class StatsExporter(object):
 
         self.spider = spider
 
-        # self.stats_params = spider.crawler.settings.getdict('STATS_EXPORT_PARAMS')
-        #
-        # self.cxn = MySQLdb.connect(host=self.stats_params['host'], port=self.stats_params['port'],
-        #                            user=self.stats_params['user'], passwd=self.stats_params['passwd'])
-        # self.cxn.autocommit(True)
-        # self.cursor = self.cxn.cursor()
-
     def update_stats(self, run_status):
-
-        # sql = '''insert into {db}.{table_name} (
-        #               user_id, job_id, start_time, run_status, download_page_num,
-        #               pending_page_num, error_page_num)
-        #           values (%s, %s, %s, %s, %s, %s, %s)
-        #           on duplicate key update
-        #             run_status = %s,
-        #             download_page_num = %s,
-        #             pending_page_num = %s,
-        #             error_page_num = %s
-        #           '''.format(db=self.stats_params['db'], table_name='crawl_status')
-
-        # self.logger.debug("Update stats: %s", sql)
 
         stats_info = self.spider.crawler.stats.__dict__['_stats']
 
